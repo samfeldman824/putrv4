@@ -3,7 +3,7 @@
 import csv
 import json
 from pathlib import Path
-from typing import cast
+from typing import TypedDict, cast
 
 from loguru import logger
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -11,23 +11,38 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from src.main import POSTGRES_URL, create_db_and_tables
 from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
 
+
+class PlayerBackupData(TypedDict):
+    """Structure of player data in backup JSON file."""
+    
+    flag: str
+    putr: str
+    player_nicknames: list[str]
+
+
 # Create engine and tables
 engine = create_engine(POSTGRES_URL)
 
+
 def add_records(backup_file: str = "full_backup.json") -> None:
     """Add records from a backup file."""
-    with open(backup_file, "r", encoding="utf-8") as f:
-        backup_data = cast("dict[str, list[str]]", json.load(f))
+    
+    with Path(backup_file).open("r", encoding="utf-8") as f:
+        backup_data = cast("dict[str, PlayerBackupData]", json.load(f))
 
     with Session(engine) as session:
         for player_name, player_data in backup_data.items():
             player = Player(name=player_name, flag=player_data["flag"], putr=player_data["putr"])
             session.add(player)
             session.flush()  # Populates player.id
+            if player.id is None:
+                msg = "Player ID should be populated after flush"
+                raise ValueError(msg)
             for nickname in player_data["player_nicknames"]:
                 session.add(PlayerNickname(nickname=nickname, player_name=player_name, player_id=player.id))
             session.commit()
     logger.success(f"Populated {len(backup_data)} players.")
+
 
 def reset_db() -> None:
     """Drop and recreate all tables, then populate nicknames."""
@@ -36,8 +51,8 @@ def reset_db() -> None:
     logger.info("Recreating tables...")
     create_db_and_tables()
 
-
     logger.success("Database reset successfully.")
+
 
 def import_all_ledgers_strict(ledgers_dir: str = "ledgers") -> None:
     """Import all CSV files from the ledgers directory strictly (no new players)."""
@@ -168,14 +183,6 @@ def get_player_strict(session: Session, row: dict[str, str]) -> Player | None:
 
 
 if __name__ == "__main__":
-    # import sys
-
-    # if "--reset" in sys.argv:
-    #     reset_db()
-
-    # import_ledger_files()
-
     reset_db()
-    # create_db_and_tables()
     add_records()
     import_all_ledgers_strict()

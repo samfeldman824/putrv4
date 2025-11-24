@@ -97,6 +97,10 @@ quality = [
 # Import CSV ledger files into PostgreSQL
 import-csv = {cmd = "python -m src.import_csv"}
 
+# Run with: poe dev
+# Start the FastAPI development server
+dev = {cmd = "uvicorn src.main:app --reload --port 8000"}
+
 # ============================================================
 # RUFF CONFIGURATION - MAXIMUM STRICTNESS
 # ============================================================

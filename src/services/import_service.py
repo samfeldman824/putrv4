@@ -8,6 +8,7 @@ from sqlmodel import Session, SQLModel, select
 
 from src.core.db import create_db_and_tables, engine
 from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
+from src.services.player_stats_service import recalculate_player_stats
 
 
 class PlayerBackupData(TypedDict):
@@ -90,6 +91,8 @@ def import_single_ledger_strict(session: Session, csv_file: Path) -> None:
 
     player_count = 0
     skipped_count = 0
+    affected_player_ids: set[int] = set()
+
     with csv_file.open(encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -123,6 +126,8 @@ def import_single_ledger_strict(session: Session, csv_file: Path) -> None:
                     net=net,
                 )
                 session.add(stats)
+                # Track player for stats recalculation
+                affected_player_ids.add(player.id)
 
             # Create LedgerEntry record (raw CSV data)
             ledger_entry = LedgerEntry(
@@ -141,8 +146,13 @@ def import_single_ledger_strict(session: Session, csv_file: Path) -> None:
 
             player_count += 1
 
+    # Recalculate stats for all affected players after importing the game
+    for player_id in affected_player_ids:
+        recalculate_player_stats(session, player_id)
+
     logger.info(
-        f"Imported game {date_str}: {player_count} records, {skipped_count} skipped"
+        f"Imported game {date_str}: {player_count} records, {skipped_count} skipped, "
+        + f"{len(affected_player_ids)} player stats updated"
     )
 
 

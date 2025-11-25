@@ -166,6 +166,10 @@ max-nested-blocks = 3  # Maximum nested block depth (PLR1702)
     "PLR2004", # Allow magic values in tests
     "ANN",     # Don't require annotations in tests
     "FBT",     # Allow boolean args in tests
+    "PLR6301", # Allow methods that could be functions (pytest style)
+    "B017",    # Allow asserting blind exceptions
+    "PLC1901", # Allow explicit empty string comparisons
+    "PLW1514", # Allow tempfile without explicit encoding in tests
 ]
 
 [tool.ruff.lint.isort]
@@ -304,6 +308,7 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
+    "tests",
 ]
 
 venvPath = "."
@@ -374,6 +379,8 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "basedpyright>=1.34.0",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
     "ruff>=0.14.6",
 ]
 

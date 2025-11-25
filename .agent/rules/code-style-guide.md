@@ -12,6 +12,7 @@ This document outlines the rules, guidelines, and key commands for working on th
 *   **Core Stack**: Python 3.12+, FastAPI, SQLModel, Pydantic v2
 *   **Tooling**: `uv` (dependency management), `ruff` (linting/formatting), `basedpyright` (static type checking), `poethepoet` (task runner)
 *   **Strictness**: Maximum. TypeScript strict mode equivalent. No `Any`, no untyped functions, strict null safety.
+*   **Logging**: Loguru
 
 ## Key Commands
 

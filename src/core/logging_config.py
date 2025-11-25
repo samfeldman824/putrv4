@@ -15,11 +15,11 @@ def configure_logging() -> None:
     # Remove default handler (console only)
     logger.remove()
 
-    # Add console handler with colorization
+    # Add console handler with colorization (SUCCESS and ERROR only)
     logger.add(
         sink=sys.stdout,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        level="DEBUG",
+        level="SUCCESS",  # Only show SUCCESS and ERROR in console
         colorize=True,
     )
 

@@ -9,4 +9,4 @@ from src.services.import_service import (
 if __name__ == "__main__":
     reset_db()
     add_records()
-    import_all_ledgers_strict()
+    # import_all_ledgers_strict()

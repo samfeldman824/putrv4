@@ -1,4 +1,5 @@
 import csv
+from enum import Enum
 import json
 from pathlib import Path
 from typing import TypedDict, cast
@@ -9,6 +10,14 @@ from sqlmodel import Session, SQLModel, select
 from src.core.db import create_db_and_tables, engine
 from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
 from src.services.player_stats_service import recalculate_player_stats
+
+
+class ImportResult(Enum):
+    """Result of importing a single ledger file."""
+
+    SUCCESS = "success"
+    GAME_EXISTS = "game_exists"
+    MISSING_NICKNAMES = "missing_nicknames"
 
 
 class PlayerBackupData(TypedDict):
@@ -55,7 +64,7 @@ def reset_db() -> None:
     logger.success("Database reset successfully.")
 
 
-def import_all_ledgers_strict(ledgers_dir: str = "ledgers") -> None:
+def import_all_ledgers(ledgers_dir: str = "ledgers") -> None:
     """Import all CSV files from the ledgers directory strictly (no new players)."""
     ledgers_path = Path(ledgers_dir)
 
@@ -69,126 +78,149 @@ def import_all_ledgers_strict(ledgers_dir: str = "ledgers") -> None:
     with Session(engine) as session:
         for csv_file in csv_files:
             logger.info(f"Processing (Strict): {csv_file.name}")
-            import_single_ledger_strict(session, csv_file)
+            import_single_ledger(session, csv_file)
         session.commit()
         logger.success("All files imported successfully (Strict Mode)!")
 
 
-def import_single_ledger_strict(session: Session, csv_file: Path) -> None:
-    """Import a single CSV ledger file strictly."""
-    # Extract date from filename (e.g., "ledger23_09_26.csv" -> "23_09_26")
-    date_str = csv_file.stem.replace("ledger", "")
+def _parse_float(val: str | None) -> float:
+    """Parse a float value safely, returning 0.0 for empty/None values."""
+    if not val or not val.strip():
+        return 0.0
+    return float(val)
 
-    # Create game
-    game = Game(date_str=date_str, ledger_filename=csv_file.name)
-    session.add(game)
-    session.flush()  # Get the game ID
 
-    # Check if ledger entries already exist for this game
-    if session.exec(select(LedgerEntry).where(LedgerEntry.game_id == game.id)).first():
-        logger.info(f"Game {date_str} already has ledger entries, skipping...")
-        return
+def _validate_ledger_nicknames(
+    session: Session, csv_file: Path
+) -> tuple[list[dict[str, str]], list[Player]] | None:
+    """Validate all nicknames in a ledger file exist.
 
-    player_count = 0
-    skipped_count = 0
-    affected_player_ids: set[int] = set()
+    Returns (rows, players) if all valid, None if any nickname is missing.
+    """
+    rows: list[dict[str, str]] = []
+    players: list[Player] = []
+    missing_nicknames: list[str] = []
 
     with csv_file.open(encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            player = get_player_strict(session, row)
+            rows.append(row)
+            player = find_player_by_nickname(session, row)
+            if player:
+                players.append(player)
+            else:
+                nickname = row.get("player_nickname", "<unknown>")
+                missing_nicknames.append(nickname)
 
-            # If player not found, SKIP
-            if not player or not player.id or not game.id:
-                skipped_count += 1
-                continue
+    if missing_nicknames:
+        logger.error(
+            f"Abandoning ledger {csv_file.name}: missing nicknames: {missing_nicknames}"
+        )
+        return None
 
-            # Helper to parse float safely
-            def parse_float(val: str | None) -> float:
-                if not val or not val.strip():
-                    return 0.0
-                return float(val)
+    return rows, players
 
-            # Create PlayerGameStats record if not exists
-            net = parse_float(row.get("net"))
 
-            existing_stats = session.exec(
-                select(PlayerGameStats).where(
-                    PlayerGameStats.player_id == player.id,
-                    PlayerGameStats.game_id == game.id,
-                )
-            ).first()
+def import_single_ledger(session: Session, csv_file: Path) -> ImportResult:
+    """Import a single CSV ledger file strictly.
 
-            if not existing_stats:
-                stats = PlayerGameStats(
-                    player_id=player.id,
-                    game_id=game.id,
-                    net=net,
-                )
-                session.add(stats)
-                # Track player for stats recalculation
-                affected_player_ids.add(player.id)
+    Returns:
+        ImportResult indicating the outcome of the import.
+    """
+    # Extract date from filename (e.g., "ledger23_09_26.csv" -> "23_09_26")
+    date_str = csv_file.stem.replace("ledger", "")
 
-            # Create LedgerEntry record (raw CSV data)
-            ledger_entry = LedgerEntry(
-                game_id=game.id,
-                player_id=player.id,
-                player_nickname=row.get("player_nickname", ""),
-                player_id_csv=row.get("player_id", ""),
-                session_start_at=row.get("session_start_at"),
-                session_end_at=row.get("session_end_at"),
-                buy_in=parse_float(row.get("buy_in")),
-                buy_out=parse_float(row.get("buy_out")),
-                stack=parse_float(row.get("stack")),
+    # First pass: validate all nicknames exist
+    validation_result = _validate_ledger_nicknames(session, csv_file)
+    if validation_result is None:
+        return ImportResult.MISSING_NICKNAMES
+    rows, players = validation_result
+
+    # Check if game already exists
+    if session.exec(select(Game).where(Game.date_str == date_str)).first():
+        logger.info(f"Game {date_str} already exists, skipping...")
+        return ImportResult.GAME_EXISTS
+
+    game = Game(date_str=date_str, ledger_filename=csv_file.name)
+    session.add(game)
+    session.flush()  # Get the game ID
+
+    if game.id is None:
+        msg = "Game ID should be populated after flush"
+        raise ValueError(msg)
+    game_id: int = game.id
+
+    # Check if ledger entries already exist for this game
+    if session.exec(select(LedgerEntry).where(LedgerEntry.game_id == game_id)).first():
+        logger.info(f"Game {date_str} already has ledger entries, skipping...")
+        return ImportResult.GAME_EXISTS
+
+    player_count = 0
+    affected_player_ids: set[int] = set()
+
+    # Second pass: process all rows (all nicknames are validated)
+    for row, player in zip(rows, players, strict=True):
+        # Player ID must exist since player was fetched from DB
+        if player.id is None:
+            msg = "Player ID should be populated for fetched player"
+            raise ValueError(msg)
+        player_id: int = player.id
+        net = _parse_float(row.get("net"))
+
+        existing_stats = session.exec(
+            select(PlayerGameStats).where(
+                PlayerGameStats.player_id == player_id,
+                PlayerGameStats.game_id == game_id,
+            )
+        ).first()
+
+        if not existing_stats:
+            stats = PlayerGameStats(
+                player_id=player_id,
+                game_id=game_id,
                 net=net,
             )
-            session.add(ledger_entry)
+            session.add(stats)
+            affected_player_ids.add(player_id)
 
-            player_count += 1
+        ledger_entry = LedgerEntry(
+            game_id=game_id,
+            player_id=player_id,
+            player_nickname=row.get("player_nickname", ""),
+            player_id_csv=row.get("player_id", ""),
+            session_start_at=row.get("session_start_at"),
+            session_end_at=row.get("session_end_at"),
+            buy_in=_parse_float(row.get("buy_in")),
+            buy_out=_parse_float(row.get("buy_out")),
+            stack=_parse_float(row.get("stack")),
+            net=net,
+        )
+        session.add(ledger_entry)
+        player_count += 1
 
     # Recalculate stats for all affected players after importing the game
     for player_id in affected_player_ids:
         recalculate_player_stats(session, player_id)
 
     logger.info(
-        f"Imported game {date_str}: {player_count} records, {skipped_count} skipped, "
+        f"Imported game {date_str}: {player_count} records, "
         + f"{len(affected_player_ids)} player stats updated"
     )
 
+    return ImportResult.SUCCESS
 
-def get_player_strict(session: Session, row: dict[str, str]) -> Player | None:
+
+def find_player_by_nickname(session: Session, row: dict[str, str]) -> Player | None:
     """Find a player based on CSV row data. Returns None if not found."""
-    player_id_str = row.get("player_id")
     player_nickname = row.get("player_nickname")
 
     player = None
 
-    # 1. Try to find by unique player_id string from CSV
-    if player_id_str:
-        player = session.exec(
-            select(Player).where(Player.player_id_str == player_id_str)
-        ).first()
-
-    # 2. Try to find by Nickname
-    if not player and player_nickname:
-        nickname_obj = session.exec(
-            select(PlayerNickname).where(PlayerNickname.nickname == player_nickname)
-        ).first()
-        if nickname_obj:
-            player = nickname_obj.player
-
-    # 3. Fallback: try to find by canonical Name
-    if not player and player_nickname:
-        player = session.exec(
-            select(Player).where(Player.name == player_nickname)
-        ).first()
-
-    # STRICT MODE: Do NOT create new player if not found
-
-    # Update player_id_str if we found the player but they didn't have one
-    if player and player_id_str and not player.player_id_str:
-        player.player_id_str = player_id_str
-        session.add(player)
-        session.flush()
+    # Try to find by Nickname
+    nickname_obj = session.exec(
+        select(PlayerNickname).where(PlayerNickname.nickname == player_nickname)
+    ).first()
+    if nickname_obj:
+        player = nickname_obj.player
 
     return player

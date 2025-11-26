@@ -1,3 +1,10 @@
+"""
+Games API endpoints.
+
+This module provides HTTP endpoints for managing game ledgers, including
+file upload and import functionality for game data in CSV format.
+"""
+
 from pathlib import Path
 import shutil
 
@@ -6,7 +13,7 @@ from loguru import logger
 from sqlmodel import Session
 
 from src.core.db import engine
-from src.services.import_service import import_single_ledger_strict
+from src.services.import_service import ImportResult, import_single_ledger
 
 router = APIRouter()
 
@@ -53,9 +60,9 @@ async def upload_game_ledger(file: UploadFile) -> dict[str, str]:
     logger.info(f"Starting import of {file.filename}...")
     try:
         with Session(engine) as session:
-            import_single_ledger_strict(session, file_path)
+            result = import_single_ledger(session, file_path)
             session.commit()
-        logger.success(f"Successfully imported game from {file.filename}")
+        logger.success(f"Import completed for {file.filename} with result: {result}")
     except Exception as e:
         # If import fails, maybe we should delete the file?
         # For now let's leave it for debugging or manual fix.
@@ -64,4 +71,11 @@ async def upload_game_ledger(file: UploadFile) -> dict[str, str]:
             status_code=500, detail=f"Failed to import ledger: {e!s}"
         ) from e
 
+    if result == ImportResult.GAME_EXISTS:
+        return {"message": f"Game from {file.filename} already exists, skipped import"}
+    if result == ImportResult.MISSING_NICKNAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Import abandoned: {file.filename} contains unknown player nicknames",
+        )
     return {"message": f"Successfully imported game from {file.filename}"}

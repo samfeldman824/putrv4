@@ -29,13 +29,24 @@ class PlayerBackupData(TypedDict):
 
 
 def add_records(backup_file: str = "full_backup.json") -> None:
-    """Add records from a backup file."""
+    """Add records from a backup file. Skips players that already exist."""
 
     with Path(backup_file).open("r", encoding="utf-8") as f:
         backup_data = cast("dict[str, PlayerBackupData]", json.load(f))
 
+    added_count = 0
+    skipped_count = 0
+
     with Session(engine) as session:
         for player_name, player_data in backup_data.items():
+            # Check if player already exists
+            existing_player = session.exec(
+                select(Player).where(Player.name == player_name)
+            ).first()
+            if existing_player:
+                skipped_count += 1
+                continue
+
             player = Player(
                 name=player_name, flag=player_data["flag"], putr=player_data["putr"]
             )
@@ -51,7 +62,8 @@ def add_records(backup_file: str = "full_backup.json") -> None:
                     )
                 )
             session.commit()
-    logger.success(f"Populated {len(backup_data)} players.")
+            added_count += 1
+    logger.success(f"Added {added_count} players, skipped {skipped_count} existing.")
 
 
 def reset_db() -> None:

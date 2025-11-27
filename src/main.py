@@ -11,6 +11,7 @@ from loguru import logger
 from src.api.v1.router import api_router
 from src.core.db import create_db_and_tables
 from src.core.logging_config import configure_logging
+from src.services.import_service import add_records
 
 
 @asynccontextmanager
@@ -21,6 +22,9 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Initializing database...")
     create_db_and_tables()
     logger.success("Database initialized successfully")
+    logger.info("Importing player data...")
+    add_records()
+    logger.success("Player data imported successfully")
     await asyncio.sleep(0)  # Satisfy RUF029 (async function must await)
     logger.success("Application startup complete")
     yield

@@ -11,7 +11,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install uv && uv sync --frozen
-    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    startCommand: bash scripts/post_deploy.sh && uvicorn src.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
@@ -20,6 +20,8 @@ services:
         fromDatabase:
           name: putrv4-db
           property: connectionString
+      - key: FORCE_IMPORT
+        value: "false"
 
 databases:
   - name: putrv4-db

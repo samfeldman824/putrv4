@@ -72,6 +72,10 @@ output/
 *.xlsx
 *.parquet
 
+# Exception: Include backup JSON files needed for deployment
+!full_backup.json
+!nicknames.json
+
 # Jupyter Notebooks
 .ipynb_checkpoints/
 *.ipynb

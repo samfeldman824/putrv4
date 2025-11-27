@@ -11,20 +11,20 @@ load_dotenv()
 # Using standard psycopg driver for simplicity first
 # For async support later, we would use: postgresql+asyncpg://...
 # Get DATABASE_URL from environment, fallback to local development
-POSTGRES_URL = os.getenv(
+postgres_url = os.getenv(
     "DATABASE_URL",
     "postgresql+psycopg://postgres:postgres@localhost:5432/putr",
 )
 
 # Render provides postgres:// URLs, but SQLAlchemy needs postgresql://
 # Also ensure we're using the psycopg driver (not psycopg2)
-if POSTGRES_URL.startswith("postgres://"):
-    POSTGRES_URL = POSTGRES_URL.replace("postgres://", "postgresql+psycopg://", 1)
-elif POSTGRES_URL.startswith("postgresql://") and "+psycopg" not in POSTGRES_URL:
-    POSTGRES_URL = POSTGRES_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+if postgres_url.startswith("postgres://"):
+    postgres_url = postgres_url.replace("postgres://", "postgresql+psycopg://", 1)
+elif postgres_url.startswith("postgresql://") and "+psycopg" not in postgres_url:
+    postgres_url = postgres_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
-logger.info(f"Initializing database engine with URL: {POSTGRES_URL.split('@')[1]}")
-engine = create_engine(POSTGRES_URL)
+logger.info(f"Initializing database engine with URL: {postgres_url.split('@')[1]}")
+engine = create_engine(postgres_url)
 
 
 def create_db_and_tables() -> None:

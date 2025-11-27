@@ -4,7 +4,6 @@ services:
     name: putrv4-db
     env: docker
     plan: free
-    ipAllowList: []
 
   # FastAPI Web Service
   - type: web

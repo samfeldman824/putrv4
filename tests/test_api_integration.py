@@ -12,7 +12,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from src.api.deps import get_session
 from src.main import app
 from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
-from src.services.import_service import import_single_ledger_strict
+from src.services.import_service import import_single_ledger
 from src.services.player_stats_service import recalculate_player_stats
 
 
@@ -375,7 +375,7 @@ class TestImportServiceIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, temp_path)
+                import_single_ledger(session, temp_path)
                 session.commit()
 
                 # Check Game was created
@@ -419,7 +419,7 @@ class TestImportServiceIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, temp_path)
+                import_single_ledger(session, temp_path)
                 session.commit()
 
                 # Only Alice's stats should be created
@@ -442,7 +442,7 @@ class TestImportServiceIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, temp_path)
+                import_single_ledger(session, temp_path)
                 session.commit()
 
                 # Check player has updated player_id_str
@@ -476,7 +476,7 @@ class TestImportServiceIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, temp_path)
+                import_single_ledger(session, temp_path)
                 session.commit()
 
                 db_player = session.get(Player, players[0].id)
@@ -589,7 +589,7 @@ class TestFullWorkflowIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, path1)
+                import_single_ledger(session, path1)
                 session.commit()
 
                 player = session.get(Player, player_id)
@@ -613,7 +613,7 @@ class TestFullWorkflowIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, path1)
+                import_single_ledger(session, path1)
                 session.commit()
         finally:
             path1.unlink()
@@ -627,7 +627,7 @@ class TestFullWorkflowIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, path2)
+                import_single_ledger(session, path2)
                 session.commit()
 
                 player = session.get(Player, player_id)
@@ -654,7 +654,7 @@ class TestFullWorkflowIntegration:
         path1 = create_temp_ledger(csv1, "23_01_01")
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, path1)
+                import_single_ledger(session, path1)
                 session.commit()
         finally:
             path1.unlink()
@@ -667,7 +667,7 @@ class TestFullWorkflowIntegration:
         path2 = create_temp_ledger(csv2, "23_02_01")
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, path2)
+                import_single_ledger(session, path2)
                 session.commit()
         finally:
             path2.unlink()
@@ -681,7 +681,7 @@ class TestFullWorkflowIntegration:
 
         try:
             with Session(test_engine) as session:
-                import_single_ledger_strict(session, path3)
+                import_single_ledger(session, path3)
                 session.commit()
 
                 player = session.get(Player, player_id)
@@ -714,7 +714,7 @@ class TestFullWorkflowIntegration:
             temp_path = create_temp_ledger(csv_content, "23_12_25")
 
             try:
-                import_single_ledger_strict(session, temp_path)
+                import_single_ledger(session, temp_path)
                 session.commit()
             finally:
                 temp_path.unlink()

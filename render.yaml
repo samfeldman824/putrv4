@@ -1,0 +1,30 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: putrv4-db
+    env: docker
+    plan: free
+    ipAllowList: []
+
+  # FastAPI Web Service
+  - type: web
+    name: putrv4-api
+    env: python
+    plan: free
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: putrv4-db
+          property: connectionString
+      - fromGroup: putrv4-secrets
+
+databases:
+  - name: putrv4-db
+    plan: free
+    databaseName: putr
+    user: putr_user

@@ -1,0 +1,16 @@
+# Auto-generated from pyproject.toml for deployment platforms
+# For development, use: uv sync
+
+pydantic>=2.0.0
+types-requests
+python-dotenv
+typing-extensions>=4.12
+fastapi>=0.121.3
+uvicorn>=0.38.0
+sqlmodel>=0.0.27
+psycopg>=3.2.13
+psycopg-binary>=3.2.13
+poethepoet>=0.37.0
+loguru>=0.7.3
+python-multipart>=0.0.20
+requests>=2.32.5

@@ -6,7 +6,7 @@ import tempfile
 from sqlmodel import select
 
 from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
-from src.services.import_service import get_player_strict, import_single_ledger_strict
+from src.services.import_service import find_player_by_nickname, import_single_ledger
 
 
 def create_temp_ledger(content: str, date_str: str = "23_11_25") -> Path:
@@ -24,7 +24,7 @@ class TestGetPlayerStrict:
         """Test finding a player by their canonical name."""
         row = {"player_nickname": sample_player.name, "player_id": ""}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
 
         assert result is not None
         assert result.id == sample_player.id
@@ -34,7 +34,7 @@ class TestGetPlayerStrict:
         """Test finding a player by their nickname."""
         row = {"player_nickname": "Johnny", "player_id": ""}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
 
         assert result is not None
         assert result.id == sample_player_with_nickname.id
@@ -49,7 +49,7 @@ class TestGetPlayerStrict:
 
         row = {"player_nickname": "Wrong Name", "player_id": "unique-id-123"}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
 
         assert result is not None
         assert result.id == sample_player.id
@@ -58,7 +58,7 @@ class TestGetPlayerStrict:
         """Test that non-existent player returns None."""
         row = {"player_nickname": "Unknown Player", "player_id": "unknown-id"}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
 
         assert result is None
 
@@ -68,7 +68,7 @@ class TestGetPlayerStrict:
 
         row = {"player_nickname": sample_player.name, "player_id": "new-id-456"}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
         session.refresh(sample_player)
 
         assert result is not None
@@ -82,7 +82,7 @@ class TestGetPlayerStrict:
 
         row = {"player_nickname": sample_player.name, "player_id": "different-id"}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
         session.refresh(sample_player)
 
         assert result is not None
@@ -108,7 +108,7 @@ class TestGetPlayerStrict:
         # Search with player1's ID but player2's nickname
         row = {"player_nickname": "SharedNick", "player_id": "id-one"}
 
-        result = get_player_strict(session, row)
+        result = find_player_by_nickname(session, row)
 
         # Should find player1 by ID
         assert result is not None
@@ -124,7 +124,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_11_25")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             games = session.exec(select(Game)).all()
@@ -139,7 +139,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_11_26")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             stats = session.exec(
@@ -158,7 +158,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_11_27")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             entries = session.exec(
@@ -178,7 +178,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_11_28")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             # Should only have 1 record (known player), not 2
@@ -193,7 +193,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_11_29")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
             session.refresh(sample_player)
 
@@ -214,7 +214,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_11_30")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             stats = session.exec(select(PlayerGameStats)).all()
@@ -234,7 +234,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "24_01_15")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             game = session.exec(select(Game)).first()
@@ -250,7 +250,7 @@ class TestImportSingleLedgerStrict:
         temp_path = create_temp_ledger(csv_content, "23_12_01")
 
         try:
-            import_single_ledger_strict(session, temp_path)
+            import_single_ledger(session, temp_path)
             session.commit()
 
             entries = session.exec(select(LedgerEntry)).all()

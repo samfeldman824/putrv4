@@ -20,7 +20,6 @@ services:
         fromDatabase:
           name: putrv4-db
           property: connectionString
-      - fromGroup: putrv4-secrets
 
 databases:
   - name: putrv4-db

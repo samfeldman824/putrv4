@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from src.models import Game, Player, PlayerGameStats
+from src.models.models import Game, Player, PlayerGameStats
 from src.services.player_stats_service import (
     parse_date_str,
     recalculate_all_player_stats,

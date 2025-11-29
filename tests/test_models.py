@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
+from src.models.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
 
 
 class TestPlayerModel:

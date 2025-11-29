@@ -13,7 +13,7 @@ load_dotenv()
 # Get DATABASE_URL from environment, fallback to local development
 postgres_url = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg://postgres:postgres@localhost:5432/putr",
+    "postgresql+psycopg://postgres:postgres@localhost:5433/putr",
 )
 
 # Render provides postgres:// URLs, but SQLAlchemy needs postgresql://

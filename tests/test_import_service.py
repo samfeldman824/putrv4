@@ -5,7 +5,7 @@ import tempfile
 
 from sqlmodel import select
 
-from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
+from src.models.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
 from src.services.import_service import find_player_by_nickname, import_single_ledger
 
 

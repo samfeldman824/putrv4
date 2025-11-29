@@ -3,9 +3,10 @@
 from datetime import datetime
 
 from loguru import logger
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from src.models import Game, Player, PlayerGameStats
+from src.dao.game_dao import get_player_stats_with_games
+from src.dao.player_dao import get_all_players, get_player_by_id, update_player
 
 # Expected number of parts in date string: YY_MM_DD
 DATE_PARTS_COUNT = 3
@@ -65,17 +66,12 @@ def recalculate_player_stats(session: Session, player_id: int) -> None:
         session: Database session
         player_id: ID of the player to recalculate stats for
     """
-    player = session.get(Player, player_id)
+    player = get_player_by_id(session, player_id)
     if not player:
         logger.warning(f"Player {player_id} not found, skipping stats calculation")
         return
 
-    # Get all games for this player with their dates for sorting
-    stats_with_games = session.exec(
-        select(PlayerGameStats, Game)
-        .join(Game, PlayerGameStats.game_id == Game.id)  # type: ignore[arg-type]
-        .where(PlayerGameStats.player_id == player_id)
-    ).all()
+    stats_with_games = get_player_stats_with_games(session, player_id)
 
     if not stats_with_games:
         # No games, reset stats to zero
@@ -87,7 +83,7 @@ def recalculate_player_stats(session: Session, player_id: int) -> None:
         player.biggest_loss = 0.0
         player.highest_net = 0.0
         player.lowest_net = 0.0
-        session.add(player)
+        update_player(session, player)
         return
 
     # Sort by date (convert date_str to datetime for proper ordering)
@@ -140,7 +136,7 @@ def recalculate_player_stats(session: Session, player_id: int) -> None:
     player.highest_net = highest_net
     player.lowest_net = lowest_net
 
-    session.add(player)
+    update_player(session, player)
     logger.debug(
         f"Updated stats for {player.name}: "
         + f"net={total_net:.2f}, games={total_games}, avg={average_net:.2f}"
@@ -152,7 +148,7 @@ def recalculate_all_player_stats(session: Session) -> None:
 
     Useful for batch operations or data repair.
     """
-    players = session.exec(select(Player)).all()
+    players = get_all_players(session)
     logger.info(f"Recalculating stats for {len(players)} players...")
 
     for player in players:

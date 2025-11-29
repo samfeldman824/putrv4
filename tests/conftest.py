@@ -7,7 +7,7 @@ import tempfile
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
-from src.models import Game, Player, PlayerGameStats, PlayerNickname
+from src.models.models import Game, Player, PlayerGameStats, PlayerNickname
 
 
 @pytest.fixture

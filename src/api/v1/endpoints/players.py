@@ -3,7 +3,7 @@ from loguru import logger
 from sqlmodel import select
 
 from src.api.deps import SessionDep
-from src.models import Player
+from src.models.models import Player
 
 router = APIRouter()
 

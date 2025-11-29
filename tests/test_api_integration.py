@@ -11,7 +11,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from src.api.deps import get_session
 from src.main import app
-from src.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
+from src.models.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
 from src.services.import_service import import_single_ledger
 from src.services.player_stats_service import recalculate_player_stats
 

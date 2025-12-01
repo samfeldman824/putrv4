@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 
 import pytest
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from src.models.models import Game, Player, PlayerGameStats, PlayerNickname
@@ -13,9 +14,15 @@ from src.models.models import Game, Player, PlayerGameStats, PlayerNickname
 @pytest.fixture
 def test_engine():
     """Create an in-memory SQLite database for testing."""
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
-    return engine
+    yield engine
+    SQLModel.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture
@@ -23,6 +30,7 @@ def session(test_engine) -> Generator[Session, None, None]:
     """Create a database session for testing."""
     with Session(test_engine) as session:
         yield session
+        session.rollback()
 
 
 @pytest.fixture

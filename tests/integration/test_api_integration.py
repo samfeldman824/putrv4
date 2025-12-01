@@ -66,9 +66,11 @@ def client(test_engine) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = get_test_session
 
     # Patch the engine in game_service to use our test engine
-    with patch("src.services.game_service.engine", test_engine):
-        with TestClient(app, raise_server_exceptions=False) as test_client:
-            yield test_client
+    with (
+        patch("src.services.game_service.engine", test_engine),
+        TestClient(app, raise_server_exceptions=False) as test_client,
+    ):
+        yield test_client
 
     app.dependency_overrides.clear()
 

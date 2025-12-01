@@ -33,8 +33,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
-      - name: Run tests with coverage
-        run: uv run pytest --cov=src --cov-report=xml
+      - name: Download coverage from CI
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+        continue-on-error: true
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@e44258b109568baa0df60ed515909fc6c72cba92

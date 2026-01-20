@@ -12,6 +12,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # If using a dependency submission action in this workflow this permission will need to be set to:
 #
 # permissions:
@@ -34,6 +38,5 @@ jobs:
         # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
         with:
           comment-summary-in-pr: always
-        #   fail-on-severity: high
-        #   deny-licenses: GPL-1.0-or-later, LGPL-2.0-or-later
-        #   retry-on-snapshot-warnings: true
+          fail-on-severity: high
+          retry-on-snapshot-warnings: true

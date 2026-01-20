@@ -1,29 +1,5 @@
 version: 2
 updates:
-  # Python dependencies via pip
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    groups:
-      production-dependencies:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "pytest*"
-          - "ruff*"
-          - "basedpyright*"
-          - "coverage*"
-      dev-dependencies:
-        patterns:
-          - "pytest*"
-          - "ruff*"
-          - "basedpyright*"
-          - "coverage*"
-
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -32,3 +8,13 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
+
+  # Note: Python dependencies are managed via uv (pyproject.toml + uv.lock)
+  # Dependabot does not currently support uv natively. The "pip" ecosystem
+  # expects requirements.txt files which this project doesn't use.
+  #
+  # For Python dependency updates, use:
+  #   uv lock --upgrade           # Update all dependencies
+  #   uv lock --upgrade <package> # Update specific package
+  #
+  # Monitor: https://github.com/dependabot/dependabot-core/issues/10478

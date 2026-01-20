@@ -17,9 +17,13 @@ on:
   merge_group:
     branches: [ "main" ]
   schedule:
-    - cron: '26 8 * * 0'
+    - cron: '0 6 * * 3'  # Weekly on Wednesday at 6 AM UTC
   push:
     branches: [ "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   # Require writing security events to upload SARIF file to security tab
@@ -30,18 +34,16 @@ permissions:
 jobs:
   scan-scheduled:
     if: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@1f1242919d8a60496dd1874b24b62b2370ed4c78" # v1.7.1
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@19ec1116569a47416e4c5e8d63f95430e9c6c277" # v1.9.0
     with:
-      # Example of specifying custom arguments
       scan-args: |-
         -r
         --skip-git
         ./
   scan-pr:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@1f1242919d8a60496dd1874b24b62b2370ed4c78" # v1.7.1
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@19ec1116569a47416e4c5e8d63f95430e9c6c277" # v1.9.0
     with:
-      # Example of specifying custom arguments
       scan-args: |-
         -r
         --skip-dirs tests

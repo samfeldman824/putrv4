@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+
+  # Note: Python dependencies are managed via uv (pyproject.toml + uv.lock)
+  # Dependabot does not currently support uv natively. The "pip" ecosystem
+  # expects requirements.txt files which this project doesn't use.
+  #
+  # For Python dependency updates, use:
+  #   uv lock --upgrade           # Update all dependencies
+  #   uv lock --upgrade <package> # Update specific package
+  #
+  # Monitor: https://github.com/dependabot/dependabot-core/issues/10478

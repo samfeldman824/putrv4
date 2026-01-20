@@ -20,14 +20,14 @@ from src.models.models import Game, Player, PlayerNickname
 def clean_ledgers_dir():
     """Clean ledgers directory before and after all integration tests."""
     ledgers_dir = Path("ledgers")
-    
+
     # Clean before tests
     if ledgers_dir.exists():
         for f in ledgers_dir.glob("ledger23_*.csv"):
             f.unlink()
-    
+
     yield
-    
+
     # Clean after tests
     if ledgers_dir.exists():
         for f in ledgers_dir.glob("ledger23_*.csv"):
@@ -186,19 +186,12 @@ class TestPlayerDetailEndpoint:
         assert data["flag"] == "🇺🇸"
         assert data["putr"] == "5.0"
 
-    def test_returns_null_or_error_when_not_found(self, client):
-        """Test getting a non-existent player.
-        
-        Current bug: response_model=Player but returns None.
-        Tolerates 200 with null or 500 server error.
-        TODO: Fix endpoint to return 404, then update this test.
-        """
+    def test_returns_404_when_not_found(self, client):
+        """Test getting a non-existent player returns 404."""
         response = client.get("/api/v1/players/99999")
 
-        # Accept either 200 with null or 500 (current bug behavior)
-        assert response.status_code in {200, 500}
-        if response.status_code == 200:
-            assert response.json() is None
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Player 99999 not found"}
 
     def test_includes_all_stats_fields(self, client, test_engine):
         """Test that player response includes all calculated stats fields."""
@@ -303,7 +296,9 @@ class TestGamesUploadEndpoint:
         assert data["results"][0]["status"] == "error"
         assert "nickname" in data["results"][0]["message"].lower()
 
-    def test_duplicate_game_via_get_game_by_date_returns_skipped(self, client, test_engine):
+    def test_duplicate_game_via_get_game_by_date_returns_skipped(
+        self, client, test_engine
+    ):
         """Test that pre-existing Game record (no ledger entries) returns skipped."""
         with Session(test_engine) as session:
             create_player_with_nickname(session, "Alice", "Alice")
@@ -322,13 +317,15 @@ class TestGamesUploadEndpoint:
         assert data["skipped"] == 1
         assert data["results"][0]["status"] == "skipped"
 
-    def test_duplicate_via_has_ledger_entries_returns_skipped(self, client, test_engine):
+    def test_duplicate_via_has_ledger_entries_returns_skipped(
+        self, client, test_engine
+    ):
         """Test that re-upload after successful import returns skipped."""
         with Session(test_engine) as session:
             create_player_with_nickname(session, "Alice", "Alice")
 
         csv_content = b"player_nickname,player_id,buy_in,buy_out,stack,net\nAlice,id1,100,200,200,100\n"
-        
+
         # First upload - should succeed
         files1 = [("files", ("ledger23_01_05.csv", BytesIO(csv_content), "text/csv"))]
         response1 = client.post("/api/v1/games/upload", files=files1)
@@ -357,9 +354,12 @@ class TestGamesUploadEndpoint:
         csv_error = b"player_nickname,player_id,buy_in,buy_out,stack,net\nUnknown,id1,100,200,200,100\n"
 
         files = [
-            ("files", ("ledger23_01_06.csv", BytesIO(csv_success), "text/csv")),  # success
-            ("files", ("ledger23_01_07.csv", BytesIO(csv_skip), "text/csv")),      # skipped
-            ("files", ("ledger23_01_08.csv", BytesIO(csv_error), "text/csv")),     # error
+            (
+                "files",
+                ("ledger23_01_06.csv", BytesIO(csv_success), "text/csv"),
+            ),  # success
+            ("files", ("ledger23_01_07.csv", BytesIO(csv_skip), "text/csv")),  # skipped
+            ("files", ("ledger23_01_08.csv", BytesIO(csv_error), "text/csv")),  # error
         ]
 
         response = client.post("/api/v1/games/upload", files=files)

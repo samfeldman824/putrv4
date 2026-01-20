@@ -79,7 +79,7 @@ tests/
 
 Key models in `src/models/models.py`:
 - **Player**: Core entity (id, name, putr, net, stats)
-- **Game**: Poker session (id, date_str YY_MM_DD format)
+- **Game**: Poker session (id, date_str in `YY_MM_DD` or `YY_MM_DD(N)` format, where `N` distinguishes multiple games on the same day)
 - **PlayerNickname**: Alias mapping for CSV import
 - **PlayerGameStats**: Player-Game results (net per game)
 - **LedgerEntry**: Raw CSV row data

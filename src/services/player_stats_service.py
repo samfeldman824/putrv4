@@ -148,11 +148,27 @@ def recalculate_all_player_stats(session: Session) -> None:
 
     Useful for batch operations or data repair.
     """
-    players = get_all_players(session)
-    logger.info(f"Recalculating stats for {len(players)} players...")
+    # Paginate through all players to handle large datasets
+    offset = 0
+    limit = 100
+    total_processed = 0
 
-    for player in players:
-        if player.id is not None:
-            recalculate_player_stats(session, player.id)
+    while True:
+        players = get_all_players(session, offset=offset, limit=limit)
+        if not players:
+            break
 
-    logger.success(f"Recalculated stats for {len(players)} players")
+        logger.info(f"Processing batch of {len(players)} players (offset={offset})...")
+
+        for player in players:
+            if player.id is not None:
+                recalculate_player_stats(session, player.id)
+                total_processed += 1
+
+        # Break if we got fewer players than the limit (last page)
+        if len(players) < limit:
+            break
+
+        offset += limit
+
+    logger.success(f"Recalculated stats for {total_processed} players")

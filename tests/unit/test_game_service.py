@@ -36,6 +36,48 @@ class TestProcessUploadedFile:
         assert result.filename == "test.txt"
         assert "CSV" in result.message
 
+    def test_path_traversal_sanitized(self, mock_ledgers_dir):
+        """Test that path traversal attempts are sanitized (S2083)."""
+        file_content = b"player_nickname,player_id,buy_in,buy_out,stack,net\n"
+        file = MagicMock(spec=UploadFile)
+        # Attempt path traversal - should be sanitized to just "passwd.csv"
+        file.filename = "../../../etc/passwd.csv"
+        file.file = BytesIO(file_content)
+
+        with (
+            patch("src.services.game_service.import_single_ledger") as mock_import,
+            patch("src.services.game_service.Session"),
+        ):
+            mock_import.return_value = ImportResult.SUCCESS
+            result = process_uploaded_file(file)
+
+        # The filename should be sanitized to just the base name
+        assert result.filename == "passwd.csv"
+        # Verify file was written to the safe location, not outside
+        saved_file = mock_ledgers_dir / "passwd.csv"
+        assert saved_file.exists()
+
+    def test_path_traversal_with_backslash_sanitized(self, mock_ledgers_dir):
+        """Test that Windows-style path traversal is sanitized."""
+        file_content = b"player_nickname,player_id,buy_in,buy_out,stack,net\n"
+        file = MagicMock(spec=UploadFile)
+        file.filename = "..\\..\\..\\etc\\passwd.csv"
+        file.file = BytesIO(file_content)
+
+        with (
+            patch("src.services.game_service.import_single_ledger") as mock_import,
+            patch("src.services.game_service.Session"),
+        ):
+            mock_import.return_value = ImportResult.SUCCESS
+            result = process_uploaded_file(file)
+
+        # Path.name extracts just the filename - on Unix backslash is valid in filename
+        # but the defense-in-depth check ensures it stays in ledgers dir
+        assert result.status == "success"
+        # Verify file was written to the safe location
+        saved_file = mock_ledgers_dir / "passwd.csv"
+        assert saved_file.exists()
+
     @pytest.fixture
     def mock_ledgers_dir(self, tmp_path, monkeypatch):
         """Set up temporary ledgers directory."""

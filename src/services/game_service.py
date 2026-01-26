@@ -22,7 +22,9 @@ def process_uploaded_file(file: UploadFile) -> FileUploadResult:  # noqa: PLR091
             message="No filename provided",
         )
 
-    filename = file.filename
+    # Sanitize filename to prevent path traversal attacks (S2083)
+    # Extract only the base name, removing any directory components
+    filename = Path(file.filename).name
 
     if not filename.endswith(".csv"):
         return FileUploadResult(
@@ -32,10 +34,19 @@ def process_uploaded_file(file: UploadFile) -> FileUploadResult:  # noqa: PLR091
         )
 
     # Ensure ledgers directory exists
-    ledgers_dir = Path("ledgers")
+    ledgers_dir = Path("ledgers").resolve()
     ledgers_dir.mkdir(exist_ok=True)
 
-    file_path = ledgers_dir / filename
+    file_path = (ledgers_dir / filename).resolve()
+
+    # Verify the resolved path is within the ledgers directory (defense in depth)
+    if not file_path.is_relative_to(ledgers_dir):
+        logger.warning(f"Path traversal attempt detected: {file.filename}")
+        return FileUploadResult(
+            filename=filename,
+            status="error",
+            message="Invalid filename",
+        )
     logger.info(f"Saving file to: {file_path}")
 
     try:

@@ -6,14 +6,15 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
-from sqlmodel import Session, SQLModel, select
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine as sm_create_engine, select
 
 from src.dao.player_dao import create_nickname
 from src.models.models import Game, LedgerEntry, Player, PlayerGameStats, PlayerNickname
 from src.services.import_service import (
     ImportResult,
-    _parse_float,
-    _validate_ledger_nicknames,
+    _parse_float,  # noqa: PLC2701
+    _validate_ledger_nicknames,  # noqa: PLC2701
     add_records,
     import_all_ledgers,
     import_single_ledger,
@@ -66,18 +67,12 @@ class TestAddRecords:
             "Alice": {
                 "flag": "🇺🇸",
                 "putr": "5.0",
-                "player_nicknames": ["Alice", "AliceP"]
+                "player_nicknames": ["Alice", "AliceP"],
             },
-            "Bob": {
-                "flag": "🇬🇧",
-                "putr": "3.5",
-                "player_nicknames": ["Bob", "Bobby"]
-            }
+            "Bob": {"flag": "🇬🇧", "putr": "3.5", "player_nicknames": ["Bob", "Bobby"]},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(backup_data, f)
             backup_path = f.name
 
@@ -98,9 +93,7 @@ class TestAddRecords:
 
                 # Check nicknames
                 nicknames = session.exec(
-                    select(PlayerNickname).where(
-                        PlayerNickname.player_name == "Alice"
-                    )
+                    select(PlayerNickname).where(PlayerNickname.player_name == "Alice")
                 ).all()
                 assert len(nicknames) == 2
         finally:
@@ -118,18 +111,12 @@ class TestAddRecords:
             "Alice": {
                 "flag": "🇫🇷",  # Different flag
                 "putr": "3.0",
-                "player_nicknames": ["AliceNew"]
+                "player_nicknames": ["AliceNew"],
             },
-            "Bob": {
-                "flag": "🇬🇧",
-                "putr": "3.5",
-                "player_nicknames": ["Bob"]
-            }
+            "Bob": {"flag": "🇬🇧", "putr": "3.5", "player_nicknames": ["Bob"]},
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(backup_data, f)
             backup_path = f.name
 
@@ -155,11 +142,8 @@ class TestAddRecords:
 class TestResetDb:
     """Tests for reset_db function."""
 
-    def test_drops_and_recreates_tables(self, test_engine):
+    def test_drops_and_recreates_tables(self):
         """Test that reset_db drops all tables and recreates them."""
-        from sqlalchemy.pool import StaticPool
-        from sqlmodel import create_engine as sm_create_engine
-
         # Create a separate engine for reset_db testing
         reset_engine = sm_create_engine(
             "sqlite:///:memory:",
@@ -209,9 +193,7 @@ class TestImportAllLedgers:
                 session.add(player)
                 session.flush()
                 nickname = PlayerNickname(
-                    nickname="Alice",
-                    player_name="Alice",
-                    player_id=player.id
+                    nickname="Alice", player_name="Alice", player_id=player.id
                 )
                 session.add(nickname)
                 session.commit()
@@ -345,7 +327,7 @@ class TestImportSingleLedgerExtended:
 class TestValidateLedgerNicknames:
     """Tests for _validate_ledger_nicknames function."""
 
-    def test_returns_none_for_missing_nicknames(self, session, sample_player):
+    def test_returns_none_for_missing_nicknames(self, session):
         """Test that missing nicknames returns None."""
         csv_content = (
             "player_nickname,player_id,buy_in,buy_out,stack,net\n"
@@ -387,7 +369,7 @@ class TestValidateLedgerNicknames:
         finally:
             temp_path.unlink()
 
-    def test_handles_empty_nickname_field(self, session, sample_player):
+    def test_handles_empty_nickname_field(self, session):
         """Test that empty nickname field is handled."""
         csv_content = (
             "player_nickname,player_id,buy_in,buy_out,stack,net\n"

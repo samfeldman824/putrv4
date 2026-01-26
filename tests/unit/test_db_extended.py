@@ -1,7 +1,10 @@
 """Extended unit tests for database configuration - covering URL normalization."""
 
+import importlib
 import os
 from unittest.mock import patch
+
+import src.core.db
 
 
 class TestDatabaseUrlNormalization:
@@ -13,10 +16,6 @@ class TestDatabaseUrlNormalization:
 
         with patch.dict(os.environ, {"DATABASE_URL": test_url}):
             # Re-import to trigger URL normalization
-            import importlib
-
-            import src.core.db
-
             importlib.reload(src.core.db)
 
             # Check the normalized URL
@@ -28,10 +27,6 @@ class TestDatabaseUrlNormalization:
         test_url = "postgresql://user:pass@host:5432/db"
 
         with patch.dict(os.environ, {"DATABASE_URL": test_url}):
-            import importlib
-
-            import src.core.db
-
             importlib.reload(src.core.db)
 
             assert "+psycopg" in src.core.db.postgres_url
@@ -41,10 +36,6 @@ class TestDatabaseUrlNormalization:
         test_url = "postgresql+psycopg://user:pass@host:5432/db"
 
         with patch.dict(os.environ, {"DATABASE_URL": test_url}):
-            import importlib
-
-            import src.core.db
-
             importlib.reload(src.core.db)
 
             assert src.core.db.postgres_url == test_url
@@ -55,10 +46,6 @@ class TestDatabaseUrlNormalization:
         env_without_db = {k: v for k, v in os.environ.items() if k != "DATABASE_URL"}
 
         with patch.dict(os.environ, env_without_db, clear=True):
-            import importlib
-
-            import src.core.db
-
             importlib.reload(src.core.db)
 
             assert "localhost" in src.core.db.postgres_url

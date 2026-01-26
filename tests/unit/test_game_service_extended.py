@@ -4,6 +4,7 @@ from io import BytesIO
 from unittest.mock import MagicMock, mock_open, patch
 
 from fastapi import UploadFile
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.services.game_service import process_uploaded_file
 
@@ -19,9 +20,11 @@ class TestProcessUploadedFileOsError:
         mock_file.file = BytesIO(b"player_nickname,net\nAlice,100\n")
 
         # Mock Path.open to raise OSError
-        with patch("src.services.game_service.Path.mkdir"), patch(
-            "src.services.game_service.Path.open",
-            side_effect=OSError("Disk full")
+        with (
+            patch("src.services.game_service.Path.mkdir"),
+            patch(
+                "src.services.game_service.Path.open", side_effect=OSError("Disk full")
+            ),
         ):
             result = process_uploaded_file(mock_file)
 
@@ -35,9 +38,12 @@ class TestProcessUploadedFileOsError:
         mock_file.filename = "ledger23_11_02.csv"
         mock_file.file = BytesIO(b"content")
 
-        with patch("src.services.game_service.Path.mkdir"), patch(
-            "src.services.game_service.Path.open",
-            side_effect=PermissionError("Permission denied")
+        with (
+            patch("src.services.game_service.Path.mkdir"),
+            patch(
+                "src.services.game_service.Path.open",
+                side_effect=PermissionError("Permission denied"),
+            ),
         ):
             result = process_uploaded_file(mock_file)
 
@@ -84,14 +90,13 @@ class TestProcessUploadedFileOsError:
         mock_file.file.read = MagicMock(side_effect=OSError("Read error"))
 
         # shutil.copyfileobj will call read on the source
-        with patch("src.services.game_service.Path.mkdir"):
-            with patch("src.services.game_service.shutil.copyfileobj") as mock_copy:
-                mock_copy.side_effect = OSError("Copy failed")
-                with patch(
-                    "src.services.game_service.Path.open",
-                    mock_open()
-                ):
-                    result = process_uploaded_file(mock_file)
+        with (
+            patch("src.services.game_service.Path.mkdir"),
+            patch("src.services.game_service.shutil.copyfileobj") as mock_copy,
+            patch("src.services.game_service.Path.open", mock_open()),
+        ):
+            mock_copy.side_effect = OSError("Copy failed")
+            result = process_uploaded_file(mock_file)
 
         assert result.status == "error"
 
@@ -99,24 +104,22 @@ class TestProcessUploadedFileOsError:
 class TestProcessUploadedFileSqlAlchemyError:
     """Tests for SQLAlchemy error handling in process_uploaded_file."""
 
-    def test_handles_database_error_during_import(self, test_engine):
+    def test_handles_database_error_during_import(self):
         """Test that database errors during import are handled."""
-        from sqlalchemy.exc import SQLAlchemyError
-
         mock_file = MagicMock(spec=UploadFile)
         mock_file.filename = "ledger23_11_04.csv"
         mock_file.file = BytesIO(b"player_nickname,net\nAlice,100\n")
 
-        with patch("src.services.game_service.Path.mkdir"):
-            with patch("src.services.game_service.Path.open", mock_open()):
-                with patch("src.services.game_service.shutil.copyfileobj"):
-                    with patch(
-                        "src.services.game_service.Session"
-                    ) as mock_session:
-                        mock_session.return_value.__enter__ = MagicMock(
-                            side_effect=SQLAlchemyError("DB error")
-                        )
-                        result = process_uploaded_file(mock_file)
+        with (
+            patch("src.services.game_service.Path.mkdir"),
+            patch("src.services.game_service.Path.open", mock_open()),
+            patch("src.services.game_service.shutil.copyfileobj"),
+            patch("src.services.game_service.Session") as mock_session,
+        ):
+            mock_session.return_value.__enter__ = MagicMock(
+                side_effect=SQLAlchemyError("DB error")
+            )
+            result = process_uploaded_file(mock_file)
 
         assert result.status == "error"
         assert "import" in result.message.lower() or "DB error" in result.message

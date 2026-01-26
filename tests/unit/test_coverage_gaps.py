@@ -1,15 +1,21 @@
 """Tests to cover remaining gaps in test coverage."""
 
+import asyncio
+import contextlib
 import json
 from pathlib import Path
 import tempfile
 from unittest.mock import MagicMock, patch
 
+from fastapi import HTTPException
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+from src.api.deps import get_session
+from src.api.v1.endpoints.games import upload_game_ledgers
 from src.dao.player_dao import create_nickname
+import src.import_csv
 from src.models.models import (
     Game,
     LedgerEntry,
@@ -17,6 +23,12 @@ from src.models.models import (
     PlayerGameStats,
     PlayerNickname,
 )
+from src.services.import_service import (
+    ImportResult,
+    add_records,
+    import_single_ledger,
+)
+from src.services.player_stats_service import recalculate_all_player_stats
 
 
 class TestDepsGetSession:
@@ -33,8 +45,6 @@ class TestDepsGetSession:
         SQLModel.metadata.create_all(test_engine)
 
         with patch("src.api.deps.engine", test_engine):
-            from src.api.deps import get_session
-
             # Call the generator
             gen = get_session()
 
@@ -44,10 +54,8 @@ class TestDepsGetSession:
             assert isinstance(session, Session)
 
             # Close the generator (triggers the cleanup after yield)
-            try:
+            with contextlib.suppress(StopIteration):
                 next(gen)
-            except StopIteration:
-                pass
 
         test_engine.dispose()
 
@@ -57,11 +65,6 @@ class TestGamesUploadEmptyFiles:
 
     def test_upload_with_empty_files_list_raises_400(self):
         """Test that upload_game_ledgers raises 400 for empty file list."""
-        import asyncio
-
-        from fastapi import HTTPException
-
-        from src.api.v1.endpoints.games import upload_game_ledgers
 
         async def run_upload():
             return await upload_game_ledgers(files=[])
@@ -88,9 +91,7 @@ class TestImportServiceValueErrors:
             }
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(backup_data, f)
             backup_path = f.name
 
@@ -105,13 +106,11 @@ class TestImportServiceValueErrors:
                     "src.services.import_service.create_player",
                     return_value=mock_player,
                 ),
-            ):
-                from src.services.import_service import add_records
-
-                with pytest.raises(
+                pytest.raises(
                     ValueError, match="Player ID should be populated after flush"
-                ):
-                    add_records(backup_path)
+                ),
+            ):
+                add_records(backup_path)
         finally:
             Path(backup_path).unlink()
 
@@ -119,8 +118,6 @@ class TestImportServiceValueErrors:
         self, session, sample_player
     ):
         """Test import_single_ledger raises ValueError when game ID is None."""
-        from src.services.import_service import import_single_ledger
-
         # Create nickname for the player
         create_nickname(
             session,
@@ -143,26 +140,23 @@ class TestImportServiceValueErrors:
 
         try:
             # Mock create_game to return a game with None id
-            mock_game = Game(
-                date_str="23_99_01", ledger_filename="ledger23_99_01.csv"
-            )
+            mock_game = Game(date_str="23_99_01", ledger_filename="ledger23_99_01.csv")
             mock_game.id = None
 
-            with patch(
-                "src.services.import_service.create_game", return_value=mock_game
-            ), pytest.raises(
-                ValueError, match="Game ID should be populated after flush"
+            with (
+                patch(
+                    "src.services.import_service.create_game", return_value=mock_game
+                ),
+                pytest.raises(
+                    ValueError, match="Game ID should be populated after flush"
+                ),
             ):
                 import_single_ledger(session, temp_path)
         finally:
             temp_path.unlink()
 
-    def test_import_single_ledger_raises_when_player_id_is_none_in_loop(
-        self, session
-    ):
+    def test_import_single_ledger_raises_when_player_id_is_none_in_loop(self, session):
         """Test import_single_ledger raises ValueError when player ID is None."""
-        from src.services.import_service import import_single_ledger
-
         # Create a player that will have None id in the validation result
         player = Player(name="TestPlayer", flag="🏳️", putr="5.0")
         session.add(player)
@@ -206,12 +200,15 @@ class TestImportServiceValueErrors:
             ]
             mock_validation_result = (mock_rows, [mock_player])
 
-            with patch(
-                "src.services.import_service._validate_ledger_nicknames",
-                return_value=mock_validation_result,
-            ), pytest.raises(
-                ValueError,
-                match="Player ID should be populated for fetched player",
+            with (
+                patch(
+                    "src.services.import_service._validate_ledger_nicknames",
+                    return_value=mock_validation_result,
+                ),
+                pytest.raises(
+                    ValueError,
+                    match="Player ID should be populated for fetched player",
+                ),
             ):
                 import_single_ledger(session, temp_path)
         finally:
@@ -221,12 +218,8 @@ class TestImportServiceValueErrors:
 class TestImportServiceHasLedgerEntriesBranch:
     """Test the has_ledger_entries branch in import_single_ledger."""
 
-    def test_import_skips_when_game_has_ledger_entries(
-        self, session, sample_player
-    ):
+    def test_import_skips_when_game_has_ledger_entries(self, session, sample_player):
         """Test import returns GAME_EXISTS when game has ledger entries."""
-        from src.services.import_service import ImportResult, import_single_ledger
-
         # Create nickname for the player
         create_nickname(
             session,
@@ -268,15 +261,14 @@ class TestImportServiceHasLedgerEntriesBranch:
         try:
             # Mock get_game_by_date to return None so we get past that check
             # Then has_ledger_entries will return True
-            with patch(
-                "src.services.import_service.get_game_by_date", return_value=None
+            with (
+                patch(
+                    "src.services.import_service.get_game_by_date", return_value=None
+                ),
+                patch("src.services.import_service.create_game", return_value=game),
             ):
-                # But we need to mock create_game to return our game that has entries
-                with patch(
-                    "src.services.import_service.create_game", return_value=game
-                ):
-                    result = import_single_ledger(session, temp_path)
-                    assert result == ImportResult.GAME_EXISTS
+                result = import_single_ledger(session, temp_path)
+                assert result == ImportResult.GAME_EXISTS
         finally:
             temp_path.unlink()
 
@@ -284,12 +276,8 @@ class TestImportServiceHasLedgerEntriesBranch:
 class TestImportServiceExistingStatsBranch:
     """Test the existing_stats branch in import_single_ledger."""
 
-    def test_import_skips_creating_stats_when_they_exist(
-        self, session, sample_player
-    ):
+    def test_import_skips_creating_stats_when_they_exist(self, session, sample_player):
         """Test that existing PlayerGameStats are not duplicated during import."""
-        from src.services.import_service import ImportResult, import_single_ledger
-
         # Create nickname for the player
         create_nickname(
             session,
@@ -359,8 +347,6 @@ class TestPlayerStatsServicePlayerIdNone:
 
     def test_recalculate_all_skips_player_with_none_id(self, session):
         """Test that players with None id are skipped gracefully."""
-        from src.services.player_stats_service import recalculate_all_player_stats
-
         # Create a real player
         player = Player(name="RealPlayer", flag="🏳️", putr="UR")
         session.add(player)
@@ -393,7 +379,5 @@ class TestImportCsvModule:
     def test_import_csv_module_imports_work(self):
         """Test that the import_csv module can be imported."""
         # Simply importing the module should cover the import statements
-        import src.import_csv
-
         # Verify the module has expected attributes
         assert hasattr(src.import_csv, "logger")

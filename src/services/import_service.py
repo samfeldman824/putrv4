@@ -8,6 +8,7 @@ from loguru import logger
 from sqlmodel import Session, SQLModel
 
 from src.core.db import create_db_and_tables, engine
+from src.core.exceptions import InternalError
 from src.dao.game_dao import (
     create_game,
     create_ledger_entry,
@@ -64,8 +65,7 @@ def add_records(backup_file: str = "full_backup.json") -> None:
             )
             created_player = create_player(session, player)
             if created_player.id is None:
-                msg = "Player ID should be populated after flush"
-                raise ValueError(msg)
+                raise InternalError(message="Player ID should be populated after flush")
             for nickname in player_data["player_nicknames"]:
                 create_nickname(
                     session,
@@ -170,8 +170,7 @@ def import_single_ledger(session: Session, csv_file: Path) -> ImportResult:
     game = create_game(session, Game(date_str=date_str, ledger_filename=csv_file.name))
 
     if game.id is None:
-        msg = "Game ID should be populated after flush"
-        raise ValueError(msg)
+        raise InternalError(message="Game ID should be populated after flush")
     game_id: int = game.id
 
     # Check if ledger entries already exist for this game
@@ -186,8 +185,9 @@ def import_single_ledger(session: Session, csv_file: Path) -> ImportResult:
     for row, player in zip(rows, players, strict=True):
         # Player ID must exist since player was fetched from DB
         if player.id is None:
-            msg = "Player ID should be populated for fetched player"
-            raise ValueError(msg)
+            raise InternalError(
+                message="Player ID should be populated for fetched player"
+            )
         player_id: int = player.id
         net = _parse_float(row.get("net"))
 

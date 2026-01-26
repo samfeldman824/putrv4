@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download coverage from CI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: coverage-report
           github-token: ${{ secrets.GITHUB_TOKEN }}

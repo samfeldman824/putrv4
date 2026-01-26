@@ -8,7 +8,6 @@ from src.dao.game_dao import (
     create_player_game_stats,
     get_game_by_date,
     get_game_by_id,
-    get_ledger_entries_by_game,
     get_player_game_stats,
     get_player_stats_with_games,
     has_ledger_entries,
@@ -59,37 +58,6 @@ class TestCreateGame:
 
         assert result.id is not None
         assert result.date_str == "24_01_01"
-
-
-class TestGetLedgerEntriesByGame:
-    """Tests for get_ledger_entries_by_game."""
-
-    def test_returns_empty_list_when_no_entries(self, session, sample_game):
-        """Test that empty list is returned when no entries exist."""
-        result = get_ledger_entries_by_game(session, sample_game.id)
-        assert result == []
-
-    def test_returns_all_entries_for_game(self, session, sample_game, sample_player):
-        """Test that all entries for a game are returned."""
-        entry1 = LedgerEntry(
-            game_id=sample_game.id,
-            player_id=sample_player.id,
-            player_nickname="Nick1",
-            player_id_csv="id1",
-            net=100.0,
-        )
-        entry2 = LedgerEntry(
-            game_id=sample_game.id,
-            player_id=sample_player.id,
-            player_nickname="Nick2",
-            player_id_csv="id2",
-            net=-50.0,
-        )
-        session.add_all([entry1, entry2])
-        session.commit()
-
-        result = get_ledger_entries_by_game(session, sample_game.id)
-        assert len(result) == 2
 
 
 class TestHasLedgerEntries:

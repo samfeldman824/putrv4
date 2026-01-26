@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 from loguru import logger
-from sqlmodel import select
 
 from src.api.deps import SessionDep
+from src.dao.player_dao import get_all_players, get_player_by_id
 from src.models.models import Player
 
 router = APIRouter()
@@ -14,7 +14,7 @@ def read_players(
 ) -> list[Player]:
     """Retrieve a paginated list of players from the database."""
     logger.info(f"Fetching players list (offset={offset}, limit={limit})")
-    players = list(session.exec(select(Player).offset(offset).limit(limit)).all())
+    players = get_all_players(session, offset=offset, limit=limit)
     logger.debug(f"Retrieved {len(players)} players")
     return players
 
@@ -23,7 +23,7 @@ def read_players(
 def read_player(player_id: int, session: SessionDep) -> Player | None:
     """Retrieve a specific player by ID from the database."""
     logger.info(f"Fetching player with ID: {player_id}")
-    player = session.get(Player, player_id)
+    player = get_player_by_id(session, player_id)
     if player:
         logger.debug(f"Found player: {player.name}")
     else:

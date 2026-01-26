@@ -71,7 +71,7 @@ class TestGetAllPlayers:
         assert result == []
 
     def test_returns_all_players(self, session):
-        """Test that all players are returned."""
+        """Test that all players are returned with default pagination."""
         player1 = Player(name="Player One")
         player2 = Player(name="Player Two")
         session.add_all([player1, player2])
@@ -81,6 +81,29 @@ class TestGetAllPlayers:
         assert len(result) == 2
         names = {p.name for p in result}
         assert names == {"Player One", "Player Two"}
+
+    def test_pagination_with_offset_and_limit(self, session):
+        """Test that pagination works correctly with offset and limit."""
+        # Create 5 players
+        players = [Player(name=f"Player {i}") for i in range(1, 6)]
+        session.add_all(players)
+        session.commit()
+
+        # Get first page (2 players)
+        page1 = get_all_players(session, offset=0, limit=2)
+        assert len(page1) == 2
+
+        # Get second page (2 players)
+        page2 = get_all_players(session, offset=2, limit=2)
+        assert len(page2) == 2
+
+        # Get third page (1 player remaining)
+        page3 = get_all_players(session, offset=4, limit=2)
+        assert len(page3) == 1
+
+        # Verify no overlap between pages
+        all_ids = {p.id for p in page1} | {p.id for p in page2} | {p.id for p in page3}
+        assert len(all_ids) == 5
 
 
 class TestCreatePlayer:

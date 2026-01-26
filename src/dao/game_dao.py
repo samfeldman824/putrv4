@@ -22,13 +22,6 @@ def create_game(session: Session, game: Game) -> Game:
     return game
 
 
-def get_ledger_entries_by_game(session: Session, game_id: int) -> list[LedgerEntry]:
-    """Get all ledger entries for a game."""
-    return list(
-        session.exec(select(LedgerEntry).where(LedgerEntry.game_id == game_id)).all()
-    )
-
-
 def has_ledger_entries(session: Session, game_id: int) -> bool:
     """Check if a game has any ledger entries."""
     return (

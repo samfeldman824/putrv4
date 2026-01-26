@@ -35,15 +35,15 @@ class TestParseFloat:
 
     def test_empty_string_returns_zero(self):
         """Test that empty string returns 0.0."""
-        assert _parse_float("") == 0.0
+        assert _parse_float("") == pytest.approx(0.0)
 
     def test_none_returns_zero(self):
         """Test that None returns 0.0."""
-        assert _parse_float(None) == 0.0
+        assert _parse_float(None) == pytest.approx(0.0)
 
     def test_whitespace_only_returns_zero(self):
         """Test that whitespace-only string returns 0.0."""
-        assert _parse_float("   ") == 0.0
+        assert _parse_float("   ") == pytest.approx(0.0)
 
     def test_valid_float_parses_correctly(self):
         """Test that valid float string parses correctly."""

@@ -10,6 +10,7 @@ from loguru import logger
 
 from src.api.v1.router import api_router
 from src.core.db import create_db_and_tables
+from src.core.error_handlers import register_exception_handlers
 from src.core.logging_config import configure_logging
 from src.services.import_service import add_records
 
@@ -32,6 +33,8 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(lifespan=lifespan)
+
+register_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

@@ -7,9 +7,10 @@ file upload and import functionality for game data in CSV format.
 
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, UploadFile
 from loguru import logger
 
+from src.core.exceptions import ValidationError
 from src.schemas.schemas import BatchUploadResponse
 from src.services.game_service import process_uploaded_file
 
@@ -30,7 +31,7 @@ async def upload_game_ledgers(
     logger.info(f"Received batch upload request with {len(files)} file(s)")
 
     if not files:
-        raise HTTPException(status_code=400, detail="No files provided")
+        raise ValidationError(message="No files provided")
 
     results: list[FileUploadResult] = []
     for file in files:

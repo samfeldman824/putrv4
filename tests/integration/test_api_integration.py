@@ -186,19 +186,14 @@ class TestPlayerDetailEndpoint:
         assert data["flag"] == "🇺🇸"
         assert data["putr"] == "5.0"
 
-    def test_returns_null_or_error_when_not_found(self, client):
-        """Test getting a non-existent player.
-
-        Current bug: response_model=Player but returns None.
-        Tolerates 200 with null or 500 server error.
-        TODO: Fix endpoint to return 404, then update this test.
-        """
+    def test_returns_404_when_not_found(self, client):
+        """Test getting a non-existent player returns 404."""
         response = client.get("/api/v1/players/99999")
 
-        # Accept either 200 with null or 500 (current bug behavior)
-        assert response.status_code in {200, 500}
-        if response.status_code == 200:
-            assert response.json() is None
+        assert response.status_code == 404
+        data = response.json()
+        assert data["error"]["code"] == "not_found"
+        assert "99999" in data["error"]["message"]
 
     def test_includes_all_stats_fields(self, client, test_engine):
         """Test that player response includes all calculated stats fields."""

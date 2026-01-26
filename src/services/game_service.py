@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from src.core.db import engine
+from src.core.exceptions import AppError
 from src.schemas.schemas import FileUploadResult
 from src.services.import_service import ImportResult, import_single_ledger
 
@@ -74,6 +75,20 @@ def process_uploaded_file(file: UploadFile) -> FileUploadResult:  # noqa: PLR091
             filename=filename,
             status="error",
             message=f"Failed to import ledger: {e!s}",
+        )
+    except AppError as e:
+        logger.error(f"Application error importing {filename}: {e.message}")
+        return FileUploadResult(
+            filename=filename,
+            status="error",
+            message=e.message,
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"Unexpected error processing {filename}: {e}")
+        return FileUploadResult(
+            filename=filename,
+            status="error",
+            message="Unexpected error during import",
         )
 
     if result == ImportResult.GAME_EXISTS:

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from loguru import logger
 
 from src.api.deps import SessionDep
+from src.core.exceptions import NotFoundError
 from src.dao.player_dao import get_all_players, get_player_by_id
 from src.models.models import Player
 
@@ -20,12 +21,14 @@ def read_players(
 
 
 @router.get("/{player_id}", response_model=Player)
-def read_player(player_id: int, session: SessionDep) -> Player | None:
+def read_player(player_id: int, session: SessionDep) -> Player:
     """Retrieve a specific player by ID from the database."""
     logger.info(f"Fetching player with ID: {player_id}")
     player = get_player_by_id(session, player_id)
-    if player:
-        logger.debug(f"Found player: {player.name}")
-    else:
-        logger.warning(f"Player with ID {player_id} not found")
+    if not player:
+        raise NotFoundError(
+            message=f"Player {player_id} not found",
+            details={"resource": "player", "id": player_id},
+        )
+    logger.debug(f"Found player: {player.name}")
     return player

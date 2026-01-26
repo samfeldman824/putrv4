@@ -5,6 +5,7 @@ from datetime import datetime
 from loguru import logger
 from sqlmodel import Session
 
+from src.core.exceptions import ValidationError
 from src.dao.game_dao import get_player_stats_with_games
 from src.dao.player_dao import get_all_players, get_player_by_id, update_player
 
@@ -36,8 +37,10 @@ def parse_date_str(date_str: str) -> datetime:
     # Parse the base date
     parts = base_date.split("_")
     if len(parts) != DATE_PARTS_COUNT:
-        msg = f"Invalid date_str format: {date_str}"
-        raise ValueError(msg)
+        raise ValidationError(
+            message=f"Invalid date_str format: {date_str}",
+            details={"date_str": date_str, "expected_format": "YY_MM_DD"},
+        )
 
     year = int(parts[0]) + 2000  # '23' -> 2023
     month = int(parts[1])

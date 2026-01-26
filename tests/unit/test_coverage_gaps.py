@@ -7,13 +7,13 @@ from pathlib import Path
 import tempfile
 from unittest.mock import MagicMock, patch
 
-from fastapi import HTTPException
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from src.api.deps import get_session
 from src.api.v1.endpoints.games import upload_game_ledgers
+from src.core.exceptions import InternalError, ValidationError
 from src.dao.player_dao import create_nickname
 import src.import_csv
 from src.models.models import (
@@ -63,26 +63,23 @@ class TestDepsGetSession:
 class TestGamesUploadEmptyFiles:
     """Test the empty files check in games.py upload endpoint."""
 
-    def test_upload_with_empty_files_list_raises_400(self):
-        """Test that upload_game_ledgers raises 400 for empty file list."""
+    def test_upload_with_empty_files_list_raises_validation_error(self):
+        """Test that upload_game_ledgers raises ValidationError for empty file list."""
 
         async def run_upload():
             return await upload_game_ledgers(files=[])
 
-        # Call the endpoint function directly with empty list
-        # This bypasses FastAPI's validation layer
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             asyncio.run(run_upload())
 
-        assert exc_info.value.status_code == 400
-        assert "No files provided" in exc_info.value.detail
+        assert "No files provided" in exc_info.value.message
 
 
-class TestImportServiceValueErrors:
-    """Test ValueError branches in import_service.py."""
+class TestImportServiceInternalErrors:
+    """Test InternalError branches in import_service.py."""
 
     def test_add_records_raises_when_player_id_is_none(self, test_engine):
-        """Test add_records raises ValueError when player ID is None."""
+        """Test add_records raises InternalError when player ID is None."""
         backup_data = {
             "TestPlayer": {
                 "flag": "🏳️",
@@ -107,7 +104,7 @@ class TestImportServiceValueErrors:
                     return_value=mock_player,
                 ),
                 pytest.raises(
-                    ValueError, match="Player ID should be populated after flush"
+                    InternalError, match="Player ID should be populated after flush"
                 ),
             ):
                 add_records(backup_path)
@@ -117,7 +114,7 @@ class TestImportServiceValueErrors:
     def test_import_single_ledger_raises_when_game_id_is_none(
         self, session, sample_player
     ):
-        """Test import_single_ledger raises ValueError when game ID is None."""
+        """Test import_single_ledger raises InternalError when game ID is None."""
         # Create nickname for the player
         create_nickname(
             session,
@@ -148,7 +145,7 @@ class TestImportServiceValueErrors:
                     "src.services.import_service.create_game", return_value=mock_game
                 ),
                 pytest.raises(
-                    ValueError, match="Game ID should be populated after flush"
+                    InternalError, match="Game ID should be populated after flush"
                 ),
             ):
                 import_single_ledger(session, temp_path)
@@ -156,7 +153,7 @@ class TestImportServiceValueErrors:
             temp_path.unlink()
 
     def test_import_single_ledger_raises_when_player_id_is_none_in_loop(self, session):
-        """Test import_single_ledger raises ValueError when player ID is None."""
+        """Test import_single_ledger raises InternalError when player ID is None."""
         # Create a player that will have None id in the validation result
         player = Player(name="TestPlayer", flag="🏳️", putr="5.0")
         session.add(player)
@@ -206,7 +203,7 @@ class TestImportServiceValueErrors:
                     return_value=mock_validation_result,
                 ),
                 pytest.raises(
-                    ValueError,
+                    InternalError,
                     match="Player ID should be populated for fetched player",
                 ),
             ):

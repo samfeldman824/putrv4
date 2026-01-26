@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.core.exceptions import ValidationError
 from src.models.models import Game, Player, PlayerGameStats
 from src.services.player_stats_service import (
     parse_date_str,
@@ -40,19 +41,19 @@ class TestParseDateStr:
         result = parse_date_str("23_09_26()")
         assert result.hour == 0
 
-    def test_invalid_date_format_raises_value_error(self):
-        """Test that invalid date format raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid date_str format"):
+    def test_invalid_date_format_raises_validation_error(self):
+        """Test that invalid date format raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid date_str format"):
             parse_date_str("invalid")
 
-    def test_too_few_parts_raises_value_error(self):
-        """Test that date with too few parts raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid date_str format"):
+    def test_too_few_parts_raises_validation_error(self):
+        """Test that date with too few parts raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid date_str format"):
             parse_date_str("23_09")
 
-    def test_too_many_parts_raises_value_error(self):
-        """Test that date with too many parts raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid date_str format"):
+    def test_too_many_parts_raises_validation_error(self):
+        """Test that date with too many parts raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid date_str format"):
             parse_date_str("23_09_26_extra")
 
 

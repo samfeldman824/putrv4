@@ -15,7 +15,9 @@ def get_player_by_name(session: Session, name: str) -> Player | None:
     return session.exec(select(Player).where(Player.name == name)).first()
 
 
-def get_all_players(session: Session, offset: int = 0, limit: int = 100) -> list[Player]:
+def get_all_players(
+    session: Session, offset: int = 0, limit: int = 100
+) -> list[Player]:
     """Get all players with pagination."""
     statement = select(Player).offset(offset).limit(limit)
     return list(session.exec(statement).all())

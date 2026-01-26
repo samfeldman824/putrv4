@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.core.exceptions import ValidationError
 from src.models.models import Game, PlayerGameStats
 from src.services.player_stats_service import (
     parse_date_str,
@@ -31,14 +32,14 @@ class TestParseDateStr:
         assert first.hour == 1
         assert second.hour == 2
 
-    def test_invalid_format_raises_value_error(self):
-        """Test that invalid format raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid date_str format"):
+    def test_invalid_format_raises_validation_error(self):
+        """Test that invalid format raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid date_str format"):
             parse_date_str("invalid")
 
-    def test_incomplete_date_raises_value_error(self):
-        """Test that incomplete date raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid date_str format"):
+    def test_incomplete_date_raises_validation_error(self):
+        """Test that incomplete date raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid date_str format"):
             parse_date_str("23_09")
 
 

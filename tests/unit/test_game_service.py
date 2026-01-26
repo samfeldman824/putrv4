@@ -74,6 +74,9 @@ class TestProcessUploadedFile:
         # Path.name extracts just the filename - on Unix backslash is valid in filename
         # but the defense-in-depth check ensures it stays in ledgers dir
         assert result.status == "success"
+        # Verify file was written to the safe location
+        saved_file = mock_ledgers_dir / "passwd.csv"
+        assert saved_file.exists()
 
     @pytest.fixture
     def mock_ledgers_dir(self, tmp_path, monkeypatch):
